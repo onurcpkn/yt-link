@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouTube'a yönlendiriliyor...</title>
+<style>
+  body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;min-height:100vh;margin:0;
+       background:#0f0f0f;color:#fff;text-align:center;padding:20px}
+  .btn{display:inline-block;background:#ff0000;color:#fff;padding:14px 28px;
+       border-radius:8px;text-decoration:none;font-weight:600;margin-top:20px}
+  .small{opacity:.6;font-size:14px;margin-top:30px}
+</style>
+</head>
+<body>
+  <h2>YouTube'a yönlendiriliyorsun...</h2>
+  <a id="manual" class="btn" href="#">Açılmadıysa buraya bas</a>
+  <p class="small">Tarayıcıdan değil, YouTube uygulamasından izlemen için.</p>
+
+<script>
+(function(){
+  const p = new URLSearchParams(location.search);
+  let id = p.get('v');
+
+  if(!id && p.get('u')){
+    const m = decodeURIComponent(p.get('u')).match(
+      /(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{11})/
+    );
+    if(m) id = m[1];
+  }
+  if(!id){ document.body.innerHTML = '<h2>Video ID bulunamadı</h2>'; return; }
+
+  const ua = navigator.userAgent || '';
+  const isAndroid = /android/i.test(ua);
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+
+  const webUrl    = `https://www.youtube.com/watch?v=${id}`;
+  const iosScheme = `youtube://www.youtube.com/watch?v=${id}`;
+  const intentUrl = `intent://www.youtube.com/watch?v=${id}` +
+                    `#Intent;package=com.google.android.youtube;scheme=https;` +
+                    `S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+
+  const btn = document.getElementById('manual');
+  btn.href = isAndroid ? intentUrl : (isIOS ? iosScheme : webUrl);
+
+  if(isAndroid){
+    location.href = intentUrl;
+  } else if(isIOS){
+    location.href = iosScheme;
+    setTimeout(()=>{ location.href = webUrl; }, 1500);
+  } else {
+    location.href = webUrl;
+  }
+})();
+</script>
+</body>
+</html>
