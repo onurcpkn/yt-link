@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YT Link Dönüştürücü</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:500px;margin:40px auto;
+       padding:20px;background:#0f0f0f;color:#fff}
+  h2{margin-top:0}
+  input,button{width:100%;padding:14px;margin:8px 0;font-size:16px;
+       box-sizing:border-box;border-radius:8px;border:none}
+  input{background:#222;color:#fff}
+  button{background:#ff0000;color:#fff;font-weight:600;cursor:pointer}
+  #out{background:#222;padding:14px;word-break:break-all;border-radius:8px;
+       margin-top:14px;display:none}
+  #out a{color:#4af;text-decoration:none}
+  .copy{background:#333;margin-top:10px;padding:10px}
+  .err{color:#f66}
+</style>
+</head>
+<body>
+<h2>YouTube Link Dönüştürücü</h2>
+<p>YouTube linkini yapıştır, Instagram'a koyacağın linki üret.</p>
+<input id="in" placeholder="https://youtube.com/watch?v=...">
+<button onclick="gen()">Dönüştür</button>
+<div id="out"></div>
+<script>
+function gen(){
+  const v = document.getElementById('in').value.trim();
+  const out = document.getElementById('out');
+  out.style.display = 'block';
+  const m = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if(!m){
+    out.innerHTML = '<span class="err">Geçersiz YouTube linki. Tekrar dene.</span>';
+    return;
+  }
+  const link = `${location.origin}/?v=${m[1]}`;
+  out.innerHTML = `
+    <div>Hazır link:</div>
+    <a href="${link}" target="_blank">${link}</a>
+    <button class="copy" onclick="navigator.clipboard.writeText('${link}');this.innerText='Kopyalandı ✓'">Linki kopyala</button>
+  `;
+}
+</script>
+</body>
+</html>
