@@ -1,8 +1,0 @@
-name = "yt-link"
-compatibility_date = "2024-09-01"
-pages_build_output_dir = "."
-
-[[d1_databases]]
-binding = "DB"
-database_name = "ytlink-db"
-database_id = "5a504e92-9fd1-4f49-bc6f-bf49f362f446"
