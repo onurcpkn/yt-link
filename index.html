@@ -3,56 +3,126 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>YouTube'a yönlendiriliyor...</title>
+<title>YT Link Paneli</title>
 <style>
-  body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;
-       align-items:center;justify-content:center;min-height:100vh;margin:0;
-       background:#0f0f0f;color:#fff;text-align:center;padding:20px}
-  .btn{display:inline-block;background:#ff0000;color:#fff;padding:14px 28px;
-       border-radius:8px;text-decoration:none;font-weight:600;margin-top:20px}
-  .small{opacity:.6;font-size:14px;margin-top:30px}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:20px;background:#0f0f0f;color:#fff}
+  h1{color:#ff0000;text-align:center;margin:20px 0 6px}
+  .sub{text-align:center;color:#aaa;margin-bottom:30px}
+  .form{background:#1a1a1a;padding:20px;border-radius:12px;margin-bottom:20px}
+  input,button{width:100%;padding:14px;font-size:16px;border-radius:8px;border:none;font-family:inherit}
+  input{background:#222;color:#fff;margin-bottom:10px}
+  button{background:#ff0000;color:#fff;font-weight:600;cursor:pointer}
+  button:hover{background:#cc0000}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+  .stat{background:#1a1a1a;padding:16px;border-radius:8px;text-align:center}
+  .stat .n{font-size:24px;font-weight:bold;color:#ff0000}
+  .stat .l{font-size:13px;color:#aaa;margin-top:4px}
+  .links{background:#1a1a1a;padding:16px;border-radius:12px}
+  .link{display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:center}
+  .link:last-child{border-bottom:none}
+  .link img{width:80px;height:60px;border-radius:6px;object-fit:cover;flex-shrink:0}
+  .link .info{flex:1;min-width:0}
+  .link .title{font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .link .url{font-size:13px;color:#4af;word-break:break-all}
+  .link .meta{font-size:12px;color:#888;margin-top:4px}
+  .link .actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+  .link .actions button{padding:6px 12px;font-size:12px;width:auto}
+  .copy{background:#333!important}
+  .del{background:#700!important}
+  .msg{padding:12px;border-radius:8px;margin-bottom:10px;display:none}
+  .msg.ok{background:#063;color:#9f9}
+  .msg.err{background:#600;color:#f99}
+  .empty{text-align:center;color:#888;padding:30px}
 </style>
 </head>
 <body>
-  <h2>YouTube'a yönlendiriliyorsun...</h2>
-  <a id="manual" class="btn" href="#">Açılmadıysa buraya bas</a>
-  <p class="small">Tarayıcıdan değil, YouTube uygulamasından izlemen için.</p>
+
+<h1>YT Link Paneli</h1>
+<p class="sub">YouTube linklerini Instagram için dönüştür ve istatistikleri takip et.</p>
+
+<div class="form">
+  <input id="ytInput" placeholder="YouTube linkini yapıştır...">
+  <button onclick="createLink()">Link oluştur</button>
+  <div id="msg" class="msg"></div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="links">
+  <div id="linksList"><div class="empty">Yükleniyor...</div></div>
+</div>
 
 <script>
-(function(){
-  const p = new URLSearchParams(location.search);
-  let id = p.get('v');
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
 
-  if(!id && p.get('u')){
-    const m = decodeURIComponent(p.get('u')).match(
-      /(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{11})/
-    );
-    if(m) id = m[1];
-  }
-  if(!id){ document.body.innerHTML = '<h2>Video ID bulunamadı</h2>'; return; }
+async function loadStats(){
+  try{
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('stats').innerHTML =
+      '<div class="stat"><div class="n">'+d.total+'</div><div class="l">Toplam tık</div></div>'+
+      '<div class="stat"><div class="n">'+d.today+'</div><div class="l">Bugünkü tık</div></div>'+
+      '<div class="stat"><div class="n">'+d.bestDay+'</div><div class="l">En iyi gün</div></div>'+
+      '<div class="stat"><div class="n">'+d.bestHour+'</div><div class="l">En iyi saat</div></div>';
 
-  const ua = navigator.userAgent || '';
-  const isAndroid = /android/i.test(ua);
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const list = document.getElementById('linksList');
+    if(!d.links.length){ list.innerHTML='<div class="empty">Henüz link oluşturmadın.</div>'; return; }
 
-  const webUrl    = `https://www.youtube.com/watch?v=${id}`;
-  const iosScheme = `youtube://www.youtube.com/watch?v=${id}`;
-  const intentUrl = `intent://www.youtube.com/watch?v=${id}` +
-                    `#Intent;package=com.google.android.youtube;scheme=https;` +
-                    `S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    list.innerHTML = d.links.map(function(l){
+      const url = location.origin + '/r/' + l.slug;
+      const date = new Date(l.created_at).toLocaleDateString('tr-TR');
+      const thumb = l.thumbnail || ('https://i.ytimg.com/vi/'+l.video_id+'/mqdefault.jpg');
+      const title = l.title || '(başlık yok)';
+      return '<div class="link"><img src="'+thumb+'" alt="">'+
+        '<div class="info"><div class="title">'+escapeHtml(title)+'</div>'+
+        '<div class="url">'+url+'</div>'+
+        '<div class="meta">'+date+' • '+l.click_count+' tık</div></div>'+
+        '<div class="actions">'+
+        '<button class="copy" onclick="copyLink(\''+url+'\', this)">Kopyala</button>'+
+        '<button class="del" onclick="delLink(\''+l.slug+'\')">Sil</button></div></div>';
+    }).join('');
+  }catch(e){ showMsg('İstatistikler yüklenemedi: '+e.message,'err'); }
+}
 
-  const btn = document.getElementById('manual');
-  btn.href = isAndroid ? intentUrl : (isIOS ? iosScheme : webUrl);
+async function createLink(){
+  const input = document.getElementById('ytInput');
+  const url = input.value.trim();
+  if(!url) return;
+  try{
+    const r = await fetch('/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({youtubeUrl:url})});
+    const d = await r.json();
+    if(d.error){ showMsg(d.error,'err'); return; }
+    const newUrl = location.origin + '/r/' + d.slug;
+    showMsg(d.existed ? 'Bu video için zaten link var: '+newUrl : 'Link oluşturuldu: '+newUrl, 'ok');
+    input.value = '';
+    loadStats();
+  }catch(e){ showMsg('Hata: '+e.message,'err'); }
+}
 
-  if(isAndroid){
-    location.href = intentUrl;
-  } else if(isIOS){
-    location.href = iosScheme;
-    setTimeout(()=>{ location.href = webUrl; }, 1500);
-  } else {
-    location.href = webUrl;
-  }
-})();
+function copyLink(url, btn){
+  navigator.clipboard.writeText(url);
+  const old = btn.innerText;
+  btn.innerText = 'Kopyalandı ✓';
+  setTimeout(function(){ btn.innerText = old; }, 1500);
+}
+
+async function delLink(slug){
+  if(!confirm('Bu link silinsin mi? Tıklama geçmişi de gidecek.')) return;
+  await fetch('/api/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:slug})});
+  loadStats();
+}
+
+function showMsg(text, type){
+  const m = document.getElementById('msg');
+  m.className = 'msg ' + type;
+  m.innerText = text;
+  m.style.display = 'block';
+  setTimeout(function(){ m.style.display='none'; }, 4000);
+}
+
+loadStats();
 </script>
+
 </body>
 </html>
